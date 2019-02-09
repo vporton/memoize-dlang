@@ -1,4 +1,4 @@
-module memoize.property;
+module memoize;
 
 /**
 The following code makes cached (memoized) property `f`
