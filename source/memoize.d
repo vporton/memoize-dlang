@@ -41,6 +41,7 @@ template memoizeMember(S, string name, uint maxSize) {
         return memoize!(f, maxSize);
     }
 }
+
 unittest {
     struct S {
         @property float _x() { return 1.5; }
