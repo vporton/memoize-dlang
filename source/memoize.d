@@ -22,24 +22,25 @@ mixin template CachedProperty(string name, string baseName = '_' ~ name) {
           '}');
 }
 
-template ReturnType!(__traits(getMember, s, name)) memoizeMember(S, string name) {
-    ReturnType!(__traits(getMember, s, name))
-    f(S s, Parameters!(__traits(getMember, s, name)) other)
-    {
-        return __traits(getMember, s, name)(other);
+template memoizeMember(S, string name) {
+    alias Member = __traits(getMember, S, name);
+    ReturnType!(Member) memoizeMember(S s, Parameters!Member others) {
+        ReturnType!Member f(S s, Parameters!Member others) {
+            return __traits(getMember, s, name)(others);
+        }
+        return memoize!f;
     }
-    return memoize!f;
 }
 
-template ReturnType!(__traits(getMember, s, name)) memoizeMember(S, string name, uint maxSize) {
-    ReturnType!(__traits(getMember, s, name))
-    f(S s, Parameters!(__traits(getMember, s, name)) other)
-    {
-        return __traits(getMember, s, name)(other);
+template memoizeMember(S, string name, uint maxSize) {
+    alias Member = __traits(getMember, S, name);
+    ReturnType!(Member) memoizeMember(S s, Parameters!Member others) {
+        ReturnType!Member f(S s, Parameters!Member others) {
+            return __traits(getMember, s, name)(others);
+        }
+        return memoize!(f, maxSize);
     }
-    return memoize!(f, maxSize);
 }
-
 unittest {
     struct S {
         @property float _x() { return 1.5; }
