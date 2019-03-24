@@ -1,5 +1,8 @@
 module memoize;
 
+import std.functional;
+import std.traits;
+
 /**
 The following code makes cached (memoized) property `f`
 ```
@@ -17,6 +20,24 @@ mixin template CachedProperty(string name, string baseName = '_' ~ name) {
           name ~ "IsCached = true;\n" ~
           "return " ~ name ~ "Cache = " ~ baseName ~ ";\n" ~
           '}');
+}
+
+template ReturnType!(__traits(getMember, s, name)) memoizeMember(S, string name) {
+    ReturnType!(__traits(getMember, s, name))
+    f(S s, Parameters!(__traits(getMember, s, name)) other)
+    {
+        return __traits(getMember, s, name)(other);
+    }
+    return memoize!f;
+}
+
+template ReturnType!(__traits(getMember, s, name)) memoizeMember(S, string name, uint maxSize) {
+    ReturnType!(__traits(getMember, s, name))
+    f(S s, Parameters!(__traits(getMember, s, name)) other)
+    {
+        return __traits(getMember, s, name)(other);
+    }
+    return memoize!(f, maxSize);
 }
 
 unittest {
