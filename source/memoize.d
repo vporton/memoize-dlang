@@ -1,6 +1,6 @@
 module memoize;
 
-import std.functional;
+static import std.functional;
 import std.traits;
 
 /**
@@ -22,26 +22,6 @@ mixin template CachedProperty(string name, string baseName = '_' ~ name) {
           '}');
 }
 
-template memoizeMember(S, string name) {
-    alias Member = __traits(getMember, S, name);
-    ReturnType!Member memoizeMember(S s, Parameters!Member others) {
-        ReturnType!Member f(S s, Parameters!Member others) {
-            return __traits(getMember, s, name)(others);
-        }
-        return memoize!f;
-    }
-}
-
-template memoizeMember(S, string name, uint maxSize) {
-    alias Member = __traits(getMember, S, name);
-    ReturnType!Member memoizeMember(S s, Parameters!Member others) {
-        ReturnType!Member f(S s, Parameters!Member others) {
-            return __traits(getMember, s, name)(others);
-        }
-        return memoize!(f, maxSize);
-    }
-}
-
 unittest {
     struct S {
         @property float _x() { return 1.5; }
@@ -56,4 +36,31 @@ unittest {
     assert(s.x == 1.5);
     C c = new C();
     assert(c.x == 1.5);
+}
+
+template memoizeMember(S, string name) {
+    alias Member = __traits(getMember, S, name);
+    ReturnType!Member f(S s, Parameters!Member others) {
+        return __traits(getMember, s, name)(others);
+    }
+    alias memoizeMember(S s, Parameters!Member others) = std.functional.memoize!f;
+}
+
+template memoizeMember(S, string name, uint maxSize) {
+    alias Member = __traits(getMember, S, name);
+    ReturnType!Member f(S s, Parameters!Member others) {
+        return __traits(getMember, s, name)(others);
+    }
+    alias memoizeMember(S s, Parameters!Member others) = std.functional.memoize!(f, maxSize);
+}
+
+unittest {
+    struct S2 {
+        int f(int a, int b) {
+            return a + b;
+        }
+    }
+    alias f2 = memoizeMember!(S2, "f");
+    S2 s;
+    assert(f2(s, 2, 3) == 5);
 }
