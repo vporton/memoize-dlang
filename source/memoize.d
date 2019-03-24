@@ -24,7 +24,7 @@ mixin template CachedProperty(string name, string baseName = '_' ~ name) {
 
 template memoizeMember(S, string name) {
     alias Member = __traits(getMember, S, name);
-    ReturnType!(Member) memoizeMember(S s, Parameters!Member others) {
+    ReturnType!Member memoizeMember(S s, Parameters!Member others) {
         ReturnType!Member f(S s, Parameters!Member others) {
             return __traits(getMember, s, name)(others);
         }
@@ -34,7 +34,7 @@ template memoizeMember(S, string name) {
 
 template memoizeMember(S, string name, uint maxSize) {
     alias Member = __traits(getMember, S, name);
-    ReturnType!(Member) memoizeMember(S s, Parameters!Member others) {
+    ReturnType!Member memoizeMember(S s, Parameters!Member others) {
         ReturnType!Member f(S s, Parameters!Member others) {
             return __traits(getMember, s, name)(others);
         }
