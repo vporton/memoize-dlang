@@ -43,7 +43,7 @@ template memoizeMember(S, string name) {
     ReturnType!Member f(S s, Parameters!Member others) {
         return __traits(getMember, s, name)(others);
     }
-    alias memoizeMember(S s, Parameters!Member others) = std.functional.memoize!f;
+    alias memoizeMember = std.functional.memoize!f;
 }
 
 template memoizeMember(S, string name, uint maxSize) {
@@ -51,7 +51,7 @@ template memoizeMember(S, string name, uint maxSize) {
     ReturnType!Member f(S s, Parameters!Member others) {
         return __traits(getMember, s, name)(others);
     }
-    alias memoizeMember(S s, Parameters!Member others) = std.functional.memoize!(f, maxSize);
+    alias memoizeMember = std.functional.memoize!(f, maxSize);
 }
 
 unittest {
@@ -61,6 +61,9 @@ unittest {
         }
     }
     alias f2 = memoizeMember!(S2, "f");
+    alias f3 = memoizeMember!(S2, "f", 10);
     S2 s;
     assert(f2(s, 2, 3) == 5);
+    assert(f2(s, 2, 3) == 5);
+    assert(f3(s, 2, 3) == 5);
 }
