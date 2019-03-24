@@ -38,6 +38,23 @@ unittest {
     assert(c.x == 1.5);
 }
 
+/**
+Use it to memoize both a struct or class instance for a member function and function arguments like:
+```
+struct S {
+    int f(int a, int b) {
+        return a + b;
+    }
+}
+alias f2 = memoizeMember!(S, "f");
+alias f3 = memoizeMember!(S, "f", 10);
+S s;
+assert(f2(s, 2, 3) == 5);
+```
+
+As you see the member function name ("f" in the example) is passed as a string.
+This is very unnatural, but I found no other way to do it.
+*/
 template memoizeMember(S, string name) {
     alias Member = __traits(getMember, S, name);
     ReturnType!Member f(S s, Parameters!Member others) {
@@ -46,6 +63,7 @@ template memoizeMember(S, string name) {
     alias memoizeMember = std.functional.memoize!f;
 }
 
+/// ditto
 template memoizeMember(S, string name, uint maxSize) {
     alias Member = __traits(getMember, S, name);
     ReturnType!Member f(S s, Parameters!Member others) {
