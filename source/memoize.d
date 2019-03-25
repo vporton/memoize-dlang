@@ -130,6 +130,9 @@ alias noLockMemoize(alias fun) = _memoize!(fun, "shared");
 /// must be locked explicitly!
 alias noLockMemoize(alias fun, uint maxSize) = _memoize!(fun, maxSize, "shared");
 
+/**
+Synchronized version of `memoize` using global (interthread) cache.
+*/
 template synchronizedMemoize(alias fun) {
     private alias impl = noLockMemoize!fun;
     ReturnType!fun synchronizedMemoize(Parameters!fun args) {
@@ -139,6 +142,7 @@ template synchronizedMemoize(alias fun) {
     }
 }
 
+/// ditto
 template synchronizedMemoize(alias fun, uint maxSize) {
     private alias impl = noLockMemoize!(fun, maxSize);
     ReturnType!fun synchronizedMemoize(Parameters!fun args) {
