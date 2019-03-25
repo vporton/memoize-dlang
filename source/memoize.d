@@ -115,6 +115,10 @@ private template _memoize(alias fun, uint maxSize, string attr)
     }
 }
 
+alias memoize(alias fun) = _memoize!(fun, maxSize, "");
+
+alias memoize(alias fun, uint maxSize) = _memoize!(fun, maxSize, "");
+
 /**
 Use it to memoize both a struct or class instance for a member function and function arguments like:
 ```
