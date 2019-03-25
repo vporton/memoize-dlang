@@ -38,6 +38,24 @@ unittest {
     assert(c.x == 1.5);
 }
 
+private template _memoize(alias fun, string attr)
+{
+    import std.traits : ReturnType;
+    // alias Args = Parameters!fun; // Bugzilla 13580
+
+    ReturnType!fun memoize(Parameters!fun args)
+    {
+        alias Args = Parameters!fun;
+        import std.typecons : Tuple;
+
+        mixin(attr + " static ReturnType!fun[Tuple!Args] memo;");
+        auto t = Tuple!Args(args);
+        if (auto p = t in memo)
+            return *p;
+        return memo[t] = fun(args);
+    }
+}
+
 /**
 Use it to memoize both a struct or class instance for a member function and function arguments like:
 ```
