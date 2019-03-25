@@ -134,7 +134,7 @@ alias noLockMemoize(alias fun, uint maxSize) = _memoize!(fun, maxSize, "shared")
 Synchronized version of `memoize` using global (interthread) cache.
 */
 template synchronizedMemoize(alias fun) {
-    private alias impl = noLockMemoize!fun;
+    private alias impl = memoize!fun;
     ReturnType!fun synchronizedMemoize(Parameters!fun args) {
         synchronized {
             return impl(args);
@@ -144,7 +144,7 @@ template synchronizedMemoize(alias fun) {
 
 /// ditto
 template synchronizedMemoize(alias fun, uint maxSize) {
-    private alias impl = noLockMemoize!(fun, maxSize);
+    private alias impl = memoize!(fun, maxSize);
     ReturnType!fun synchronizedMemoize(Parameters!fun args) {
         synchronized {
             return impl(args);
@@ -250,6 +250,42 @@ template memoizeMember(S, string name, uint maxSize) {
     alias memoizeMember = memoize!(f, maxSize);
 }
 
+/// ditto
+template noLockMemoizeMember(S, string name) {
+    alias Member = __traits(getMember, S, name);
+    ReturnType!Member f(S s, Parameters!Member others) {
+        return __traits(getMember, s, name)(others);
+    }
+    alias noLockMemoizeMember = noLockMemoize!f;
+}
+
+/// ditto
+template noLockMemoizeMember(S, string name, uint maxSize) {
+    alias Member = __traits(getMember, S, name);
+    ReturnType!Member f(S s, Parameters!Member others) {
+        return __traits(getMember, s, name)(others);
+    }
+    alias noLockMemoizeMember = noLockMemoize!(f, maxSize);
+}
+
+/// ditto
+template synchronizedMemoizeMember(S, string name) {
+    alias Member = __traits(getMember, S, name);
+    ReturnType!Member f(S s, Parameters!Member others) {
+        return __traits(getMember, s, name)(others);
+    }
+    alias synchronizedMemoizeMember = synchronizedMemoize!f;
+}
+
+/// ditto
+template synchronizedMemoizeMember(S, string name, uint maxSize) {
+    alias Member = __traits(getMember, S, name);
+    ReturnType!Member f(S s, Parameters!Member others) {
+        return __traits(getMember, s, name)(others);
+    }
+    alias synchronizedMemoizeMember = synchronizedMemoize!(f, maxSize);
+}
+
 unittest {
     struct S2 {
         int f(int a, int b) {
@@ -258,8 +294,12 @@ unittest {
     }
     alias f2 = memoizeMember!(S2, "f");
     alias f3 = memoizeMember!(S2, "f", 10);
+    alias f4 = synchronizedMemoizeMember!(S2, "f");
+    alias f5 = synchronizedMemoizeMember!(S2, "f", 10);
     S2 s;
     assert(f2(s, 2, 3) == 5);
     assert(f2(s, 2, 3) == 5);
     assert(f3(s, 2, 3) == 5);
+    assert(f4(s, 2, 3) == 5);
+    assert(f5(s, 2, 3) == 5);
 }
