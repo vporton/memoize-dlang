@@ -1,6 +1,6 @@
 module memoize;
 
-static import std.functional;
+//static import std.functional;
 import std.traits;
 
 /**
@@ -48,7 +48,7 @@ private template _memoize(alias fun, string attr)
         alias Args = Parameters!fun;
         import std.typecons : Tuple;
 
-        mixin(attr + " static ReturnType!fun[Tuple!Args] memo;");
+        mixin(attr ~ " static ReturnType!fun[Tuple!Args] memo;");
         auto t = Tuple!Args(args);
         if (auto p = t in memo)
             return *p;
@@ -65,8 +65,8 @@ private template _memoize(alias fun, uint maxSize, string attr)
         import std.traits : hasIndirections;
         import std.typecons : tuple;
         static struct Value { Parameters!fun args; ReturnType!fun res; }
-        mixin(attr + " static Value[] memo;");
-        mixin(attr + " static size_t[] initialized;");
+        mixin(attr ~ " static Value[] memo;");
+        mixin(attr ~ " static size_t[] initialized;");
 
         if (!memo.length)
         {
@@ -115,7 +115,7 @@ private template _memoize(alias fun, uint maxSize, string attr)
     }
 }
 
-alias memoize(alias fun) = _memoize!(fun, maxSize, "");
+alias memoize(alias fun) = _memoize!(fun, "");
 
 alias memoize(alias fun, uint maxSize) = _memoize!(fun, maxSize, "");
 
@@ -141,7 +141,7 @@ template memoizeMember(S, string name) {
     ReturnType!Member f(S s, Parameters!Member others) {
         return __traits(getMember, s, name)(others);
     }
-    alias memoizeMember = std.functional.memoize!f;
+    alias memoizeMember = memoize!f;
 }
 
 /// ditto
@@ -150,7 +150,7 @@ template memoizeMember(S, string name, uint maxSize) {
     ReturnType!Member f(S s, Parameters!Member others) {
         return __traits(getMember, s, name)(others);
     }
-    alias memoizeMember = std.functional.memoize!(f, maxSize);
+    alias memoizeMember = memoize!(f, maxSize);
 }
 
 unittest {
