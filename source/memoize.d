@@ -55,7 +55,7 @@ private template _memoize(alias fun, string attr)
     }
 }
 
-private template _memoize(alias fun, uint maxSize, string attr)
+private template _memoize(alias fun, uint maxSize, string modifier)
 {
     import std.traits : ReturnType;
     // alias Args = Parameters!fun; // Bugzilla 13580
@@ -64,8 +64,8 @@ private template _memoize(alias fun, uint maxSize, string attr)
         import std.traits : hasIndirections;
         import std.typecons : tuple;
         static struct Value { Parameters!fun args; ReturnType!fun res; }
-        mixin(attr ~ " static Value[] memo;");
-        mixin(attr ~ " static size_t[] initialized;");
+        mixin(modifier ~ " static Value[] memo;");
+        mixin(modifier ~ " static size_t[] initialized;");
 
         if (!memo.length)
         {
@@ -76,9 +76,11 @@ private template _memoize(alias fun, uint maxSize, string attr)
             static assert(maxSize < size_t.max - (8 * size_t.sizeof - 1));
 
             enum attr = GC.BlkAttr.NO_INTERIOR | (hasIndirections!Value ? 0 : GC.BlkAttr.NO_SCAN);
-            memo = (cast(Value*) GC.malloc(Value.sizeof * maxSize, attr))[0 .. maxSize];
+            mixin("alias VType = " ~ modifier ~ " Value;");
+            memo = (cast(VType*) GC.malloc(Value.sizeof * maxSize, attr))[0 .. maxSize];
             enum nwords = (maxSize + 8 * size_t.sizeof - 1) / (8 * size_t.sizeof);
-            initialized = (cast(size_t*) GC.calloc(nwords * size_t.sizeof, attr | GC.BlkAttr.NO_SCAN))[0 .. nwords];
+            mixin("alias mysize_t = " ~ modifier ~ " size_t;");
+            initialized = (cast(mysize_t*) GC.calloc(nwords * size_t.sizeof, attr | GC.BlkAttr.NO_SCAN))[0 .. nwords];
         }
 
         import core.bitop : bt, bts;
@@ -89,20 +91,20 @@ private template _memoize(alias fun, uint maxSize, string attr)
             hash = hashOf(arg, hash);
         // cuckoo hashing
         immutable idx1 = hash % maxSize;
-        if (!bt(initialized.ptr, idx1))
+        if (!bt(cast(size_t*) initialized.ptr, idx1))
         {
             emplace(&memo[idx1], args, fun(args));
-            bts(initialized.ptr, idx1); // only set to initialized after setting args and value (bugzilla 14025)
+            bts(cast(size_t*) initialized.ptr, idx1); // only set to initialized after setting args and value (bugzilla 14025)
             return memo[idx1].res;
         }
         else if (memo[idx1].args == args)
             return memo[idx1].res;
         // FNV prime
         immutable idx2 = (hash * 16_777_619) % maxSize;
-        if (!bt(initialized.ptr, idx2))
+        if (!bt(cast(size_t*) initialized.ptr, idx2))
         {
             emplace(&memo[idx2], memo[idx1]);
-            bts(initialized.ptr, idx2); // only set to initialized after setting args and value (bugzilla 14025)
+            bts(cast(size_t*) initialized.ptr, idx2); // only set to initialized after setting args and value (bugzilla 14025)
         }
         else if (memo[idx2].args == args)
             return memo[idx2].res;
@@ -123,23 +125,91 @@ alias memoize(alias fun) = _memoize!(fun, "");
 alias memoize(alias fun, uint maxSize) = _memoize!(fun, maxSize, "");
 
 /// must be locked explicitly!
-alias sharedMemoize(alias fun) = _memoize!(fun, "shared");
+alias noLockMemoize(alias fun) = _memoize!(fun, "shared");
 
 /// must be locked explicitly!
-alias sharedMemoize(alias fun, uint maxSize) = _memoize!(fun, maxSize, "shared");
+alias noLockMemoize(alias fun, uint maxSize) = _memoize!(fun, maxSize, "shared");
 
-template sychronizedMemoize(alias fun) {
-    private alias impl = sharedMemoize!fun;
-    synchronized ReturnType!fun sychronizedMemoize(Parameters!fun args) {
-        return impl(args);
+template synchronizedMemoize(alias fun) {
+    private alias impl = noLockMemoize!fun;
+    ReturnType!fun synchronizedMemoize(Parameters!fun args) {
+        synchronized {
+            return impl(args);
+        }
     }
 }
 
-template sychronizedMemoize(alias fun, uint maxSize) {
-    private alias impl = sharedMemoize!(fun, maxSize);
-    synchronized ReturnType!fun sychronizedMemoize(Parameters!fun args) {
-        return impl(args);
+template synchronizedMemoize(alias fun, uint maxSize) {
+    private alias impl = noLockMemoize!(fun, maxSize);
+    ReturnType!fun synchronizedMemoize(Parameters!fun args) {
+        synchronized {
+            return impl(args);
+        }
     }
+}
+
+@safe unittest
+{
+    ulong fib(ulong n) @safe
+    {
+        return n < 2 ? n : memoize!fib(n - 2) + memoize!fib(n - 1);
+    }
+    assert(fib(10) == 55);
+    ulong fib2(ulong n) @safe
+    {
+        return n < 2 ? n : synchronizedMemoize!fib2(n - 2) + synchronizedMemoize!fib2(n - 1);
+    }
+    assert(fib2(10) == 55);
+}
+
+@safe unittest
+{
+    ulong fact(ulong n) @safe
+    {
+        return n < 2 ? 1 : n * memoize!fact(n - 1);
+    }
+    assert(fact(10) == 3628800);
+    ulong fact2(ulong n) @safe
+    {
+        return n < 2 ? 1 : n * synchronizedMemoize!fact2(n - 1);
+    }
+    assert(fact2(10) == 3628800);
+}
+
+@safe unittest
+{
+    ulong factImpl(ulong n) @safe
+    {
+        return n < 2 ? 1 : n * factImpl(n - 1);
+    }
+    alias fact = memoize!factImpl;
+    assert(fact(10) == 3628800);
+    ulong factImpl2(ulong n) @safe
+    {
+        return n < 2 ? 1 : n * factImpl2(n - 1);
+    }
+    alias fact2 = synchronizedMemoize!factImpl;
+    assert(fact2(10) == 3628800);
+}
+
+@system unittest // not @safe due to memoize
+{
+    ulong fact(ulong n)
+    {
+        // Memoize no more than 8 values
+        return n < 2 ? 1 : n * memoize!(fact, 8)(n - 1);
+    }
+    assert(fact(8) == 40320);
+    // using more entries than maxSize will overwrite existing entries
+    assert(fact(10) == 3628800);
+    ulong fact2(ulong n)
+    {
+        // Memoize no more than 8 values
+        return n < 2 ? 1 : n * synchronizedMemoize!(fact2, 8)(n - 1);
+    }
+    assert(fact2(8) == 40320);
+    // using more entries than maxSize will overwrite existing entries
+    assert(fact2(10) == 3628800);
 }
 
 /**
