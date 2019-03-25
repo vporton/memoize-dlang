@@ -43,7 +43,7 @@ private template _memoize(alias fun, string attr)
     import std.traits : ReturnType;
     // alias Args = Parameters!fun; // Bugzilla 13580
 
-    ReturnType!fun memoize(Parameters!fun args)
+    ReturnType!fun _memoize(Parameters!fun args)
     {
         alias Args = Parameters!fun;
         import std.typecons : Tuple;
@@ -53,6 +53,65 @@ private template _memoize(alias fun, string attr)
         if (auto p = t in memo)
             return *p;
         return memo[t] = fun(args);
+    }
+}
+
+private template _memoize(alias fun, uint maxSize, string attr)
+{
+    import std.traits : ReturnType;
+    // alias Args = Parameters!fun; // Bugzilla 13580
+    ReturnType!fun _memoize(Parameters!fun args)
+    {
+        import std.traits : hasIndirections;
+        import std.typecons : tuple;
+        static struct Value { Parameters!fun args; ReturnType!fun res; }
+        mixin(attr + " static Value[] memo;");
+        mixin(attr + " static size_t[] initialized;");
+
+        if (!memo.length)
+        {
+            import core.memory : GC;
+
+            // Ensure no allocation overflows
+            static assert(maxSize < size_t.max / Value.sizeof);
+            static assert(maxSize < size_t.max - (8 * size_t.sizeof - 1));
+
+            enum attr = GC.BlkAttr.NO_INTERIOR | (hasIndirections!Value ? 0 : GC.BlkAttr.NO_SCAN);
+            memo = (cast(Value*) GC.malloc(Value.sizeof * maxSize, attr))[0 .. maxSize];
+            enum nwords = (maxSize + 8 * size_t.sizeof - 1) / (8 * size_t.sizeof);
+            initialized = (cast(size_t*) GC.calloc(nwords * size_t.sizeof, attr | GC.BlkAttr.NO_SCAN))[0 .. nwords];
+        }
+
+        import core.bitop : bt, bts;
+        import std.conv : emplace;
+
+        size_t hash;
+        foreach (ref arg; args)
+            hash = hashOf(arg, hash);
+        // cuckoo hashing
+        immutable idx1 = hash % maxSize;
+        if (!bt(initialized.ptr, idx1))
+        {
+            emplace(&memo[idx1], args, fun(args));
+            bts(initialized.ptr, idx1); // only set to initialized after setting args and value (bugzilla 14025)
+            return memo[idx1].res;
+        }
+        else if (memo[idx1].args == args)
+            return memo[idx1].res;
+        // FNV prime
+        immutable idx2 = (hash * 16_777_619) % maxSize;
+        if (!bt(initialized.ptr, idx2))
+        {
+            emplace(&memo[idx2], memo[idx1]);
+            bts(initialized.ptr, idx2); // only set to initialized after setting args and value (bugzilla 14025)
+        }
+        else if (memo[idx2].args == args)
+            return memo[idx2].res;
+        else if (idx1 != idx2)
+            memo[idx2] = memo[idx1];
+
+        memo[idx1] = Value(args, fun(args));
+        return memo[idx1].res;
     }
 }
 
