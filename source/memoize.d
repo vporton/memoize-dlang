@@ -1,6 +1,5 @@
 module memoize;
 
-//static import std.functional;
 import std.traits;
 
 /**
@@ -115,9 +114,33 @@ private template _memoize(alias fun, uint maxSize, string attr)
     }
 }
 
+/**
+The same as in Phobos `std.functional`.
+*/
 alias memoize(alias fun) = _memoize!(fun, "");
 
+/// ditto
 alias memoize(alias fun, uint maxSize) = _memoize!(fun, maxSize, "");
+
+/// must be locked explicitly!
+alias sharedMemoize(alias fun) = _memoize!(fun, "shared");
+
+/// must be locked explicitly!
+alias sharedMemoize(alias fun, uint maxSize) = _memoize!(fun, maxSize, "shared");
+
+template sychronizedMemoize(alias fun) {
+    private alias impl = sharedMemoize!fun;
+    synchronized ReturnType!fun sychronizedMemoize(Parameters!fun args) {
+        return impl(args);
+    }
+}
+
+template sychronizedMemoize(alias fun, uint maxSize) {
+    private alias impl = sharedMemoize!(fun, maxSize);
+    synchronized ReturnType!fun sychronizedMemoize(Parameters!fun args) {
+        return impl(args);
+    }
+}
 
 /**
 Use it to memoize both a struct or class instance for a member function and function arguments like:
