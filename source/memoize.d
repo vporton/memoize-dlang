@@ -39,7 +39,6 @@ unittest {
 
 private template _memoize(alias fun, string attr)
 {
-    import std.traits : ReturnType;
     // alias Args = Parameters!fun; // Bugzilla 13580
 
     ReturnType!fun _memoize(Parameters!fun args)
@@ -57,7 +56,6 @@ private template _memoize(alias fun, string attr)
 
 private template _memoize(alias fun, uint maxSize, string modifier)
 {
-    import std.traits : ReturnType;
     // alias Args = Parameters!fun; // Bugzilla 13580
     ReturnType!fun _memoize(Parameters!fun args)
     {
@@ -116,19 +114,49 @@ private template _memoize(alias fun, uint maxSize, string modifier)
     }
 }
 
+// See https://issues.dlang.org/show_bug.cgi?id=4533 why aliases are not used.
+
 /**
 The same as in Phobos `std.functional`.
 */
-alias memoize(alias fun) = _memoize!(fun, "");
+//alias memoize(alias fun) = _memoize!(fun, "");
+template memoize(alias fun)
+{
+    ReturnType!fun memoize(Parameters!fun args)
+    {
+        return _memoize!(fun, "")(args);
+    }
+}
 
 /// ditto
-alias memoize(alias fun, uint maxSize) = _memoize!(fun, maxSize, "");
+//alias memoize(alias fun, uint maxSize) = _memoize!(fun, maxSize, "");
+template memoize(alias fun, uint maxSize)
+{
+    ReturnType!fun memoize(Parameters!fun args)
+    {
+        return _memoize!(fun, maxSize, "")(args);
+    }
+}
 
 /// must be locked explicitly!
-alias noLockMemoize(alias fun) = _memoize!(fun, "shared");
+//alias noLockMemoize(alias fun) = _memoize!(fun, "shared");
+template noLockMemoize(alias fun)
+{
+    ReturnType!fun noLockMemoize(Parameters!fun args)
+    {
+        return _memoize!(fun, "shared")(args);
+    }
+}
 
 /// must be locked explicitly!
-alias noLockMemoize(alias fun, uint maxSize) = _memoize!(fun, maxSize, "shared");
+//alias noLockMemoize(alias fun, uint maxSize) = _memoize!(fun, maxSize, "shared");
+template noLockMemoize(alias fun, uint maxSize)
+{
+    ReturnType!fun noLockMemoize(Parameters!fun args)
+    {
+        return _memoize!(fun, maxSize, "shared")(args);
+    }
+}
 
 /**
 Synchronized version of `memoize` using global (interthread) cache.
