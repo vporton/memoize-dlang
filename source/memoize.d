@@ -41,7 +41,7 @@ private template _memoize(alias fun, string attr)
 {
     // alias Args = Parameters!fun; // Bugzilla 13580
 
-    ReturnType!fun _memoize(Parameters!fun args)
+    ReturnType!fun _memoize(const(Parameters!fun) args)
     {
         alias Args = Parameters!fun;
         import std.typecons : Tuple;
@@ -57,11 +57,11 @@ private template _memoize(alias fun, string attr)
 private template _memoize(alias fun, uint maxSize, string modifier)
 {
     // alias Args = Parameters!fun; // Bugzilla 13580
-    ReturnType!fun _memoize(Parameters!fun args)
+    ReturnType!fun _memoize(const(Parameters!fun) args)
     {
         import std.traits : hasIndirections;
         import std.typecons : tuple;
-        static struct Value { Parameters!fun args; ReturnType!fun res; }
+        static struct Value { const(Parameters!fun) args; ReturnType!fun res; }
         mixin(modifier ~ " static Unqual!(Value)[] memo;");
         mixin(modifier ~ " static size_t[] initialized;");
 
@@ -122,7 +122,7 @@ The same as in Phobos `std.functional`.
 //alias memoize(alias fun) = _memoize!(fun, "");
 template memoize(alias fun)
 {
-    ReturnType!fun memoize(Parameters!fun args)
+    ReturnType!fun memoize(const(Parameters!fun) args)
     {
         return _memoize!(fun, "")(args);
     }
@@ -132,7 +132,7 @@ template memoize(alias fun)
 //alias memoize(alias fun, uint maxSize) = _memoize!(fun, maxSize, "");
 template memoize(alias fun, uint maxSize)
 {
-    ReturnType!fun memoize(Parameters!fun args)
+    ReturnType!fun memoize(const(Parameters!fun) args)
     {
         return _memoize!(fun, maxSize, "")(args);
     }
@@ -142,7 +142,7 @@ template memoize(alias fun, uint maxSize)
 //alias noLockMemoize(alias fun) = _memoize!(fun, "shared");
 template noLockMemoize(alias fun)
 {
-    ReturnType!fun noLockMemoize(Parameters!fun args)
+    ReturnType!fun noLockMemoize(const(Parameters!fun) args)
     {
         return _memoize!(fun, "shared")(args);
     }
@@ -152,7 +152,7 @@ template noLockMemoize(alias fun)
 //alias noLockMemoize(alias fun, uint maxSize) = _memoize!(fun, maxSize, "shared");
 template noLockMemoize(alias fun, uint maxSize)
 {
-    ReturnType!fun noLockMemoize(Parameters!fun args)
+    ReturnType!fun noLockMemoize(const(Parameters!fun) args)
     {
         return _memoize!(fun, maxSize, "shared")(args);
     }
@@ -163,7 +163,7 @@ Synchronized version of `memoize` using global (interthread) cache.
 */
 template synchronizedMemoize(alias fun) {
     private alias impl = memoize!fun;
-    ReturnType!fun synchronizedMemoize(Parameters!fun args) {
+    ReturnType!fun synchronizedMemoize(const(Parameters!fun) args) {
         synchronized {
             return impl(args);
         }
@@ -173,7 +173,7 @@ template synchronizedMemoize(alias fun) {
 /// ditto
 template synchronizedMemoize(alias fun, uint maxSize) {
     private alias impl = memoize!(fun, maxSize);
-    ReturnType!fun synchronizedMemoize(Parameters!fun args) {
+    ReturnType!fun synchronizedMemoize(const(Parameters!fun) args) {
         synchronized {
             return impl(args);
         }
