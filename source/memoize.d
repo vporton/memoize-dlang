@@ -46,7 +46,7 @@ private template _memoize(alias fun, string attr)
         alias Args = Parameters!fun;
         import std.typecons : Tuple;
 
-        mixin(attr ~ " static ReturnType!fun[Tuple!Args] memo;");
+        mixin(attr ~ " static Unqual!(ReturnType!fun[Tuple!Args]) memo;");
         auto t = Tuple!Args(args);
         if (auto p = t in memo)
             return *p;
@@ -62,7 +62,7 @@ private template _memoize(alias fun, uint maxSize, string modifier)
         import std.traits : hasIndirections;
         import std.typecons : tuple;
         static struct Value { Parameters!fun args; ReturnType!fun res; }
-        mixin(modifier ~ " static Value[] memo;");
+        mixin(modifier ~ " static Unqual!(Value)[] memo;");
         mixin(modifier ~ " static size_t[] initialized;");
 
         if (!memo.length)
