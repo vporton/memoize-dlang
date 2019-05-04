@@ -46,7 +46,7 @@ private template _memoize(alias fun, string attr)
         alias Args = Parameters!fun;
         import std.typecons : Tuple;
 
-        mixin(attr ~ " static Unqual!(ReturnType!fun[Tuple!Args]) memo;");
+        mixin(attr ~ " static Unqual!(ReturnType!fun)[Tuple!Args] memo;");
         auto t = Tuple!Args(args);
         if (auto p = t in memo)
             return *p;
