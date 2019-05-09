@@ -1,23 +1,26 @@
 {
-  "name": "memoize",
-  "authors": [
+  "name" : "memoize",
+  "authors" : [
     "Victor Porton"
   ],
-  "description": "Memoize struct or class properties.",
-  "copyright": "Copyright © 2019, Victor Porton",
-  "license": "Apache 2.0",
-  "configurations": [
+  "description" : "Memoize struct or class properties.",
+  "copyright" : "Copyright © 2019, Victor Porton",
+  "license" : "Apache 2.0",
+  "configurations" : [
     {
-      "name": "test",
-      "targetType": "executable"
+      "name" : "test",
+      "targetType" : "executable"
     },
     {
-      "name": "static",
-      "targetType": "staticLibrary"
+      "name" : "static",
+      "targetType" : "staticLibrary"
     },
     {
-      "name": "shared",
-      "targetType": "dynamicLibrary"
+      "name" : "shared",
+      "targetType" : "dynamicLibrary"
     }
-  ]
+  ],
+  "dependencies" : {
+    "tuple-modifiers" : ">=0.1.1"
+  }
 }

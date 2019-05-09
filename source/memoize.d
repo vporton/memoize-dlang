@@ -1,6 +1,7 @@
 module memoize;
 
 import std.traits;
+import tuple_modifiers;
 
 /**
 The following code makes cached (memoized) property `f`
@@ -40,11 +41,11 @@ unittest {
 // Ugh, repeated code
 private template _memoize(alias fun, string attr)
 {
-    // alias Args = Parameters!fun; // Bugzilla 13580
+    // alias Args = addTupleModifiers!("const", Parameters!fun); // Bugzilla 13580
 
-    ReturnType!fun _memoize(const(Parameters!fun) args)
+    ReturnType!fun _memoize(Parameters!fun args)
     {
-        alias Args = Parameters!fun;
+        alias Args = addTupleModifiers!("const", Parameters!fun);
         import std.typecons : Tuple;
 
         mixin(attr ~ " static Unqual!(ReturnType!fun)[Tuple!Args] memo;");
@@ -57,11 +58,11 @@ private template _memoize(alias fun, string attr)
 
 private template _referenceMemoize(alias fun, string attr)
 {
-    // alias Args = Parameters!fun; // Bugzilla 13580
+    // alias Args = addTupleModifiers!("const", Parameters!fun); // Bugzilla 13580
 
-    ref Unqual!(ReturnType!fun) _referenceMemoize(const(Parameters!fun) args)
+    ref Unqual!(ReturnType!fun) _referenceMemoize(Parameters!fun args)
     {
-        alias Args = Parameters!fun;
+        alias Args = addTupleModifiers!("const", Parameters!fun);
         import std.typecons : Tuple;
 
         static ReturnType!fun*[Tuple!Args] memo;
@@ -76,13 +77,13 @@ private template _referenceMemoize(alias fun, string attr)
 // (also compiling with different modifiers would use more program memory)
 private template _memoize(alias fun, uint maxSize, string modifier)
 {
-    // alias Args = Parameters!fun; // Bugzilla 13580
+    // alias Args = addTupleModifiers!("const", Parameters!fun); // Bugzilla 13580
     // Ugh, repeated code
-    ReturnType!fun _memoize(const(Parameters!fun) args)
+    ReturnType!fun _memoize(Parameters!fun args)
     {
         import std.traits : hasIndirections;
         import std.typecons : tuple;
-        static struct Value { const(Parameters!fun) args; ReturnType!fun res; }
+        static struct Value { Parameters!fun args; ReturnType!fun res; }
         mixin(modifier ~ " static Unqual!(Value)[] memo;");
         mixin(modifier ~ " static size_t[] initialized;");
 
@@ -137,11 +138,11 @@ private template _memoize(alias fun, uint maxSize, string modifier)
 
 private template _referenceMemoize(alias fun, uint maxSize, string modifier)
 {
-    ref Unqual!(ReturnType!fun) _referenceMemoize(const(Parameters!fun) args)
+    ref Unqual!(ReturnType!fun) _referenceMemoize(Parameters!fun args)
     {
         import std.traits : hasIndirections;
         import std.typecons : tuple;
-        static struct Value { const(Parameters!fun) args; ReturnType!fun *res; }
+        static struct Value { Parameters!fun args; ReturnType!fun *res; }
         mixin(modifier ~ " static Unqual!(Value)*[] memo;");
         mixin(modifier ~ " static size_t[] initialized;");
 
@@ -202,7 +203,7 @@ The same as in Phobos `std.functional`.
 //alias memoize(alias fun) = _memoize!(fun, "");
 template memoize(alias fun)
 {
-    ReturnType!fun memoize(const(Parameters!fun) args)
+    ReturnType!fun memoize(Parameters!fun args)
     {
         return _memoize!(fun, "")(args);
     }
@@ -210,7 +211,7 @@ template memoize(alias fun)
 
 template referenceMemoize(alias fun)
 {
-    ref Unqual!(ReturnType!fun) referenceMemoize(const(Parameters!fun) args)
+    ref Unqual!(ReturnType!fun) referenceMemoize(Parameters!fun args)
     {
         return _referenceMemoize!(fun, "")(args);
     }
@@ -220,7 +221,7 @@ template referenceMemoize(alias fun)
 //alias memoize(alias fun, uint maxSize) = _memoize!(fun, maxSize, "");
 template memoize(alias fun, uint maxSize)
 {
-    ReturnType!fun memoize(const(Parameters!fun) args)
+    ReturnType!fun memoize(Parameters!fun args)
     {
         return _memoize!(fun, maxSize, "")(args);
     }
@@ -228,7 +229,7 @@ template memoize(alias fun, uint maxSize)
 
 template referenceMemoize(alias fun, uint maxSize)
 {
-    ref Unqual!(ReturnType!fun) referenceMemoize(const(Parameters!fun) args)
+    ref Unqual!(ReturnType!fun) referenceMemoize(Parameters!fun args)
     {
         return _referenceMemoize!(fun, maxSize, "")(args);
     }
@@ -238,7 +239,7 @@ template referenceMemoize(alias fun, uint maxSize)
 //alias noLockMemoize(alias fun) = _memoize!(fun, "shared");
 template noLockMemoize(alias fun)
 {
-    ReturnType!fun noLockMemoize(const(Parameters!fun) args)
+    ReturnType!fun noLockMemoize(Parameters!fun args)
     {
         return _memoize!(fun, "shared")(args);
     }
@@ -246,7 +247,7 @@ template noLockMemoize(alias fun)
 
 template referenceNoLockMemoize(alias fun)
 {
-    ref Unqual!(ReturnType!fun) referenceNoLockMemoize(const(Parameters!fun) args)
+    ref Unqual!(ReturnType!fun) referenceNoLockMemoize(Parameters!fun args)
     {
         return _referenceMemoize!(fun, "shared")(args);
     }
@@ -256,7 +257,7 @@ template referenceNoLockMemoize(alias fun)
 //alias noLockMemoize(alias fun, uint maxSize) = _memoize!(fun, maxSize, "shared");
 template noLockMemoize(alias fun, uint maxSize)
 {
-    ReturnType!fun noLockMemoize(const(Parameters!fun) args)
+    ReturnType!fun noLockMemoize(Parameters!fun args)
     {
         //return _memoize!(fun, maxSize, "shared")(args); // does not compile
         return _memoize!(fun, maxSize, "")(args);
@@ -265,7 +266,7 @@ template noLockMemoize(alias fun, uint maxSize)
 
 template referenceNoLockMemoize(alias fun, uint maxSize)
 {
-    ref Unqual!(ReturnType!fun) referenceNoLockMemoize(const(Parameters!fun) args)
+    ref Unqual!(ReturnType!fun) referenceNoLockMemoize(Parameters!fun args)
     {
         return _referenceMemoize!(fun, maxSize, "shared")(args);
     }
@@ -276,7 +277,7 @@ Synchronized version of `memoize` using global (interthread) cache.
 */
 template synchronizedMemoize(alias fun) {
     private alias impl = memoize!fun;
-    ReturnType!fun synchronizedMemoize(const(Parameters!fun) args) {
+    ReturnType!fun synchronizedMemoize(Parameters!fun args) {
         synchronized {
             return impl(args);
         }
@@ -285,7 +286,7 @@ template synchronizedMemoize(alias fun) {
 
 template referenceSynchronizedMemoize(alias fun) {
     private alias impl = referenceMemoize!fun;
-    ref Unqual!(ReturnType!fun) referenceSynchronizedMemoize(const(Parameters!fun) args) {
+    ref Unqual!(ReturnType!fun) referenceSynchronizedMemoize(Parameters!fun args) {
         synchronized {
             return impl(args);
         }
@@ -295,7 +296,7 @@ template referenceSynchronizedMemoize(alias fun) {
 /// ditto
 template synchronizedMemoize(alias fun, uint maxSize) {
     private alias impl = memoize!(fun, maxSize);
-    ReturnType!fun synchronizedMemoize(const(Parameters!fun) args) {
+    ReturnType!fun synchronizedMemoize(Parameters!fun args) {
         synchronized {
             return impl(args);
         }
@@ -304,7 +305,7 @@ template synchronizedMemoize(alias fun, uint maxSize) {
 
 template referenceSynchronizedMemoize(alias fun, uint maxSize) {
     private alias impl = referenceMemoize!(fun, maxSize);
-    ref Unqual!(ReturnType!fun) referenceSynchronizedMemoize(const(Parameters!fun) args) {
+    ref Unqual!(ReturnType!fun) referenceSynchronizedMemoize(Parameters!fun args) {
         synchronized {
             return impl(args);
         }
