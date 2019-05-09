@@ -64,10 +64,11 @@ private template _referenceMemoize(alias fun, string attr)
         alias Args = Parameters!fun;
         import std.typecons : Tuple;
 
-        mixin(attr ~ " static (*Unqual!(ReturnType!fun))[Tuple!Args] memo;");
+        static ReturnType!fun*[Tuple!Args] memo;
         auto t = Tuple!Args(args);
-        if (auto **p = t in memo) return **p;
-        return memo[t] = &fun(args);
+        if (auto p = t in memo) return **p;
+        memo[t] = &fun(args);
+        return *memo[t];
     }
 }
 
@@ -139,7 +140,7 @@ private template _referenceMemoize(alias fun, uint maxSize, string modifier)
         import std.traits : hasIndirections;
         import std.typecons : tuple;
         static struct Value { const(Parameters!fun) args; ReturnType!fun *res; }
-        mixin(modifier ~ " static (*Unqual!(Value))[] memo;");
+        mixin(modifier ~ " static Unqual!(Value)*[] memo;");
         mixin(modifier ~ " static size_t[] initialized;");
 
         if (!memo.length)
@@ -323,20 +324,6 @@ template referenceSynchronizedMemoize(alias fun, uint maxSize) {
 
 @safe unittest
 {
-    ulong fib(ulong n) @safe
-    {
-        return n < 2 ? n : referenceMemoize!fib(n - 2) + referenceMemoize!fib(n - 1);
-    }
-    assert(fib(10) == 55);
-    ulong fib2(ulong n) @safe
-    {
-        return n < 2 ? n : referenceSynchronizedMemoize!fib2(n - 2) + referenceSynchronizedMemoize!fib2(n - 1);
-    }
-    assert(fib2(10) == 55);
-}
-
-@safe unittest
-{
     ulong fact(ulong n) @safe
     {
         return n < 2 ? 1 : n * memoize!fact(n - 1);
@@ -345,20 +332,6 @@ template referenceSynchronizedMemoize(alias fun, uint maxSize) {
     ulong fact2(ulong n) @safe
     {
         return n < 2 ? 1 : n * synchronizedMemoize!fact2(n - 1);
-    }
-    assert(fact2(10) == 3628800);
-}
-
-@safe unittest
-{
-    ulong fact(ulong n) @safe
-    {
-        return n < 2 ? 1 : n * referenceMemoize!fact(n - 1);
-    }
-    assert(fact(10) == 3628800);
-    ulong fact2(ulong n) @safe
-    {
-        return n < 2 ? 1 : n * referenceSynchronizedMemoize!fact2(n - 1);
     }
     assert(fact2(10) == 3628800);
 }
@@ -376,22 +349,6 @@ template referenceSynchronizedMemoize(alias fun, uint maxSize) {
         return n < 2 ? 1 : n * factImpl2(n - 1);
     }
     alias fact2 = synchronizedMemoize!factImpl;
-    assert(fact2(10) == 3628800);
-}
-
-@safe unittest
-{
-    ulong factImpl(ulong n) @safe
-    {
-        return n < 2 ? 1 : n * factImpl(n - 1);
-    }
-    alias fact = referenceMemoize!factImpl;
-    assert(fact(10) == 3628800);
-    ulong factImpl2(ulong n) @safe
-    {
-        return n < 2 ? 1 : n * factImpl2(n - 1);
-    }
-    alias fact2 = referenceSynchronizedMemoize!factImpl;
     assert(fact2(10) == 3628800);
 }
 
@@ -415,24 +372,16 @@ template referenceSynchronizedMemoize(alias fun, uint maxSize) {
     assert(fact2(10) == 3628800);
 }
 
-@system unittest // not @safe due to memoize
+@system unittest
 {
-    ulong fact(ulong n)
+    static ulong x;
+    ref ulong f()
     {
-        // Memoize no more than 8 values
-        return n < 2 ? 1 : n * referenceMemoize!(fact, 8)(n - 1);
+        return x;
     }
-    assert(fact(8) == 40320);
-    // using more entries than maxSize will overwrite existing entries
-    assert(fact(10) == 3628800);
-    ulong fact2(ulong n)
-    {
-        // Memoize no more than 8 values
-        return n < 2 ? 1 : n * referenceSynchronizedMemoize!(fact2, 8)(n - 1);
-    }
-    assert(fact2(8) == 40320);
-    // using more entries than maxSize will overwrite existing entries
-    assert(fact2(10) == 3628800);
+    assert(&referenceMemoize!f() == &x);
+    assert(&referenceNoLockMemoize!f() == &x);
+    assert(&referenceSynchronizedMemoize!f() == &x);
 }
 
 /**
@@ -462,7 +411,7 @@ template memoizeMember(S, string name) {
 
 template referenceMemoizeMember(S, string name) {
     alias Member = __traits(getMember, S, name);
-    ReturnType!Member f(S s, Parameters!Member others) {
+    ref ReturnType!Member f(S s, Parameters!Member others) {
         return __traits(getMember, s, name)(others);
     }
     alias referenceMemoizeMember = referenceMemoize!f;
@@ -479,7 +428,7 @@ template memoizeMember(S, string name, uint maxSize) {
 
 template referenceMemoizeMember(S, string name, uint maxSize) {
     alias Member = __traits(getMember, S, name);
-    ReturnType!Member f(S s, Parameters!Member others) {
+    ref ReturnType!Member f(S s, Parameters!Member others) {
         return __traits(getMember, s, name)(others);
     }
     alias referenceMemoizeMember = referenceMemoize!(f, maxSize);
@@ -496,7 +445,7 @@ template noLockMemoizeMember(S, string name) {
 
 template referenceNoLockMemoizeMember(S, string name) {
     alias Member = __traits(getMember, S, name);
-    ReturnType!Member f(S s, Parameters!Member others) {
+    ref ReturnType!Member f(S s, Parameters!Member others) {
         return __traits(getMember, s, name)(others);
     }
     alias referenceNoLockMemoizeMember = referenceNoLockMemoize!f;
@@ -513,7 +462,7 @@ template noLockMemoizeMember(S, string name, uint maxSize) {
 
 template referenceNoLockMemoizeMember(S, string name, uint maxSize) {
     alias Member = __traits(getMember, S, name);
-    ReturnType!Member f(S s, Parameters!Member others) {
+    ref ReturnType!Member f(S s, Parameters!Member others) {
         return __traits(getMember, s, name)(others);
     }
     alias referenceNoLockMemoizeMember = referenceNoLockMemoize!(f, maxSize);
@@ -530,7 +479,7 @@ template synchronizedMemoizeMember(S, string name) {
 
 template referenceSynchronizedMemoizeMember(S, string name) {
     alias Member = __traits(getMember, S, name);
-    ReturnType!Member f(S s, Parameters!Member others) {
+    ref ReturnType!Member f(S s, Parameters!Member others) {
         return __traits(getMember, s, name)(others);
     }
     alias referenceSynchronizedMemoizeMember = referenceSynchronizedMemoize!f;
@@ -547,7 +496,7 @@ template synchronizedMemoizeMember(S, string name, uint maxSize) {
 
 template referenceSynchronizedMemoizeMember(S, string name, uint maxSize) {
     alias Member = __traits(getMember, S, name);
-    ReturnType!Member f(S s, Parameters!Member others) {
+    ref ReturnType!Member f(S s, Parameters!Member others) {
         return __traits(getMember, s, name)(others);
     }
     alias referenceSynchronizedMemoizeMember = referenceSynchronizedMemoize!(f, maxSize);
@@ -572,19 +521,14 @@ unittest {
 }
 
 unittest {
+    int x;
     struct S2 {
-        int f(int a, int b) {
-            return a + b;
+        ref int f() {
+            return x;
         }
     }
-    alias f2 = referenceMemoizeMember!(S2, "f");
-    alias f3 = referenceMemoizeMember!(S2, "f", 10);
-    alias f4 = referenceSynchronizedMemoizeMember!(S2, "f");
-    alias f5 = referenceSynchronizedMemoizeMember!(S2, "f", 10);
     S2 s;
-    assert(f2(s, 2, 3) == 5);
-    assert(f2(s, 2, 3) == 5);
-    assert(f3(s, 2, 3) == 5);
-    assert(f4(s, 2, 3) == 5);
-    assert(f5(s, 2, 3) == 5);
+    assert(&referenceMemoizeMember!(S2, "f")(s) == &x);
+    assert(&referenceNoLockMemoizeMember!(S2, "f")(s) == &x);
+    assert(&referenceSynchronizedMemoizeMember!(S2, "f")(s) == &x);
 }
