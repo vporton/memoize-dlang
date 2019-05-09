@@ -66,7 +66,7 @@ private template _referenceMemoize(alias fun, string attr)
 
         mixin(attr ~ " static Unqual!(ReturnType!fun)[Tuple!Args] memo;");
         auto t = Tuple!Args(args);
-        ReturnType!fun *p = t in memo;
+        Unqual!(ReturnType!fun) *p = t in memo;
         if (p) return *p;
         return memo[t] = fun(args);
     }
