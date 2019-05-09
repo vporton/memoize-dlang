@@ -64,11 +64,10 @@ private template _referenceMemoize(alias fun, string attr)
         alias Args = Parameters!fun;
         import std.typecons : Tuple;
 
-        mixin(attr ~ " static Unqual!(ReturnType!fun)[Tuple!Args] memo;");
+        mixin(attr ~ " static (*Unqual!(ReturnType!fun))[Tuple!Args] memo;");
         auto t = Tuple!Args(args);
-        mixin(attr ~ " Unqual!(ReturnType!fun) *p = t in memo;");
-        if (p) return *p;
-        return memo[t] = fun(args);
+        if (auto **p = t in memo) return **p;
+        return memo[t] = &fun(args);
     }
 }
 
@@ -139,8 +138,8 @@ private template _referenceMemoize(alias fun, uint maxSize, string modifier)
     {
         import std.traits : hasIndirections;
         import std.typecons : tuple;
-        static struct Value { const(Parameters!fun) args; ReturnType!fun res; }
-        mixin(modifier ~ " static Unqual!(Value)[] memo;");
+        static struct Value { const(Parameters!fun) args; ReturnType!fun *res; }
+        mixin(modifier ~ " static (*Unqual!(Value))[] memo;");
         mixin(modifier ~ " static size_t[] initialized;");
 
         if (!memo.length)
@@ -169,12 +168,12 @@ private template _referenceMemoize(alias fun, uint maxSize, string modifier)
         immutable idx1 = hash % maxSize;
         if (!bt(cast(size_t*) initialized.ptr, idx1))
         {
-            emplace(&memo[idx1], args, fun(args));
+            emplace(&memo[idx1], args, &fun(args));
             bts(cast(size_t*) initialized.ptr, idx1); // only set to initialized after setting args and value (bugzilla 14025)
-            return memo[idx1].res;
+            return *memo[idx1].res;
         }
         else if (memo[idx1].args == args)
-            return memo[idx1].res;
+            return *memo[idx1].res;
         // FNV prime
         immutable idx2 = (hash * 16_777_619) % maxSize;
         if (!bt(cast(size_t*) initialized.ptr, idx2))
@@ -183,12 +182,12 @@ private template _referenceMemoize(alias fun, uint maxSize, string modifier)
             bts(cast(size_t*) initialized.ptr, idx2); // only set to initialized after setting args and value (bugzilla 14025)
         }
         else if (memo[idx2].args == args)
-            return memo[idx2].res;
+            return *memo[idx2].res;
         else if (idx1 != idx2)
             memo[idx2] = memo[idx1];
 
-        memo[idx1] = Value(args, fun(args));
-        return memo[idx1].res;
+        memo[idx1] = Value(args, &fun(args));
+        return *memo[idx1].res;
     }
 }
 
