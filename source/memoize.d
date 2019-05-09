@@ -72,6 +72,8 @@ private template _referenceMemoize(alias fun, string attr)
     }
 }
 
+// TODO: It does not compile when modifier != ""
+// (also compiling with different modifiers would use more program memory)
 private template _memoize(alias fun, uint maxSize, string modifier)
 {
     // alias Args = Parameters!fun; // Bugzilla 13580
@@ -110,7 +112,7 @@ private template _memoize(alias fun, uint maxSize, string modifier)
         immutable idx1 = hash % maxSize;
         if (!bt(cast(size_t*) initialized.ptr, idx1))
         {
-            emplace(&memo[idx1], args, fun(args));
+            emplace(cast(Unqual!(Value*)) &memo[idx1], args, fun(args));
             bts(cast(size_t*) initialized.ptr, idx1); // only set to initialized after setting args and value (bugzilla 14025)
             return memo[idx1].res;
         }
@@ -256,7 +258,8 @@ template noLockMemoize(alias fun, uint maxSize)
 {
     ReturnType!fun noLockMemoize(const(Parameters!fun) args)
     {
-        return _memoize!(fun, maxSize, "shared")(args);
+        //return _memoize!(fun, maxSize, "shared")(args); // does not compile
+        return _memoize!(fun, maxSize, "")(args);
     }
 }
 
@@ -320,6 +323,11 @@ template referenceSynchronizedMemoize(alias fun, uint maxSize) {
         return n < 2 ? n : synchronizedMemoize!fib2(n - 2) + synchronizedMemoize!fib2(n - 1);
     }
     assert(fib2(10) == 55);
+    ulong fib3(ulong n) @safe
+    {
+        return n < 2 ? n : noLockMemoize!fib3(n - 2) + noLockMemoize!fib3(n - 1);
+    }
+    assert(fib3(10) == 55);
 }
 
 @safe unittest
@@ -334,6 +342,11 @@ template referenceSynchronizedMemoize(alias fun, uint maxSize) {
         return n < 2 ? 1 : n * synchronizedMemoize!fact2(n - 1);
     }
     assert(fact2(10) == 3628800);
+    ulong fact3(ulong n) @safe
+    {
+        return n < 2 ? 1 : n * noLockMemoize!fact3(n - 1);
+    }
+    assert(fact3(10) == 3628800);
 }
 
 @safe unittest
@@ -350,6 +363,12 @@ template referenceSynchronizedMemoize(alias fun, uint maxSize) {
     }
     alias fact2 = synchronizedMemoize!factImpl;
     assert(fact2(10) == 3628800);
+    ulong factImpl3(ulong n) @safe
+    {
+        return n < 2 ? 1 : n * factImpl3(n - 1);
+    }
+    alias fact3 = noLockMemoize!factImpl;
+    assert(fact3(10) == 3628800);
 }
 
 @system unittest // not @safe due to memoize
@@ -370,6 +389,14 @@ template referenceSynchronizedMemoize(alias fun, uint maxSize) {
     assert(fact2(8) == 40320);
     // using more entries than maxSize will overwrite existing entries
     assert(fact2(10) == 3628800);
+    ulong fact3(ulong n)
+    {
+        // Memoize no more than 8 values
+        return n < 2 ? 1 : n * noLockMemoize!(fact3, 8)(n - 1);
+    }
+    assert(fact3(8) == 40320);
+    // using more entries than maxSize will overwrite existing entries
+    assert(fact3(10) == 3628800);
 }
 
 @system unittest
@@ -380,8 +407,8 @@ template referenceSynchronizedMemoize(alias fun, uint maxSize) {
         return x;
     }
     assert(&referenceMemoize!f() == &x);
-    assert(&referenceNoLockMemoize!f() == &x);
     assert(&referenceSynchronizedMemoize!f() == &x);
+    assert(&referenceNoLockMemoize!f() == &x);
 }
 
 /**
@@ -512,12 +539,16 @@ unittest {
     alias f3 = memoizeMember!(S2, "f", 10);
     alias f4 = synchronizedMemoizeMember!(S2, "f");
     alias f5 = synchronizedMemoizeMember!(S2, "f", 10);
+    alias f6 = noLockMemoizeMember!(S2, "f");
+    alias f7 = noLockMemoizeMember!(S2, "f", 10);
     S2 s;
     assert(f2(s, 2, 3) == 5);
     assert(f2(s, 2, 3) == 5);
     assert(f3(s, 2, 3) == 5);
     assert(f4(s, 2, 3) == 5);
     assert(f5(s, 2, 3) == 5);
+    assert(f6(s, 2, 3) == 5);
+    assert(f7(s, 2, 3) == 5);
 }
 
 unittest {
@@ -529,6 +560,6 @@ unittest {
     }
     S2 s;
     assert(&referenceMemoizeMember!(S2, "f")(s) == &x);
-    assert(&referenceNoLockMemoizeMember!(S2, "f")(s) == &x);
     assert(&referenceSynchronizedMemoizeMember!(S2, "f")(s) == &x);
+    assert(&referenceNoLockMemoizeMember!(S2, "f")(s) == &x);
 }
