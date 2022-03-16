@@ -8,10 +8,6 @@
   "license" : "Apache 2.0",
   "configurations" : [
     {
-      "name" : "test",
-      "targetType" : "executable"
-    },
-    {
       "name" : "static",
       "targetType" : "staticLibrary"
     },
